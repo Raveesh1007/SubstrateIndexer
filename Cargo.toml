@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+tokio = { version = "1", features = ["full"] }  # Async runtime
+tokio-tungstenite = { version = "0.17.2" }  # WebSocket with tokio support
+futures-util = "0.3"  # Utility for async streams
 serde = { version = "1.0", features = ["derive"] }  # For JSON parsing
 serde_json = "1.0"  # Handle JSON data
-tokio = { version = "1", features = ["full"] }  # Async runtime
 url = "2.2"  # For URL parsing
-async-tungstenite = { version = "0.17", features = ["tokio-runtime"] }  # WebSocket over tokio runtime
-futures-util = "0.3"  # Utility for async streams
-tokio-native-tls = "0.3"  # TLS support for tokio
+tokio-native-tls = "0.3"  # Native TLS support for tokio (required for wss:// connections)

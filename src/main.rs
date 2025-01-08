@@ -1,8 +1,7 @@
-use async_tungstenite::tokio::connect_async;
-use async_tungstenite::tungstenite::Message;
-use futures_util::sink::SinkExt;  // For send
-use futures_util::stream::StreamExt;  // For next
-use tokio::time::{sleep, Duration};
+use tokio_tungstenite::connect_async;
+use tokio_tungstenite::tungstenite::Message;
+use futures_util::stream::StreamExt; // For `next`
+use futures_util::sink::SinkExt; // For `send`
 use tokio::runtime::Runtime;
 
 fn main() {
@@ -10,10 +9,10 @@ fn main() {
     rt.block_on(async {
         let url = "wss://rpc.polkadot.io";
 
-        // Attempt to connect to the Polkadot WebSocket endpoint
+        
         match connect_async(url).await {
-            Ok((mut ws_stream, _response)) => {
-                println!("Connected to Polkadot node!");
+            Ok((mut ws_stream, _)) => {
+                println!("Connected to the Polkadot node!");
 
                 // JSON-RPC request to subscribe to new block headers
                 let request = r#"{
@@ -41,17 +40,11 @@ fn main() {
                                 println!("Received non-text message: {:?}", message);
                             }
                         }
-                        Err(e) => {
-                            eprintln!("Error reading message: {:?}", e);
-                            sleep(Duration::from_secs(1)).await; // Retry delay
-                            break;
-                        }
+                        Err(e) => eprintln!("Error reading message: {:?}", e),
                     }
                 }
             }
-            Err(e) => {
-                eprintln!("Failed to connect to Polkadot node: {:?}", e);
-            }
+            Err(e) => eprintln!("Failed to connect to Polkadot node: {:?}", e),
         }
     });
 }
