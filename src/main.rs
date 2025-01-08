@@ -1,7 +1,7 @@
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
-use futures_util::stream::StreamExt; // For `next`
-use futures_util::sink::SinkExt; // For `send`
+use futures_util::stream::StreamExt; 
+use futures_util::sink::SinkExt; 
 use tokio::runtime::Runtime;
 
 fn main() {
@@ -14,7 +14,6 @@ fn main() {
             Ok((mut ws_stream, _)) => {
                 println!("Connected to the Polkadot node!");
 
-                // JSON-RPC request to subscribe to new block headers
                 let request = r#"{
                     "jsonrpc": "2.0",
                     "method": "chain_subscribeNewHeads",
