@@ -4,10 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tokio = { version = "1", features = ["full"] }  # Async runtime
-tokio-tungstenite = { version = "0.17.2" }  # WebSocket with tokio support
-futures-util = "0.3"  # Utility for async streams
-serde = { version = "1.0", features = ["derive"] }  # For JSON parsing
-serde_json = "1.0"  # Handle JSON data
-url = "2.2"  # For URL parsing
-tokio-native-tls = "0.3"  # Native TLS support for tokio (required for wss:// connections)
+tokio = { version = "1", features = ["full"] }
+subxt = "0.29"  # Subxt library for interacting with Substrate-based nodes
+futures-util = "0.3"

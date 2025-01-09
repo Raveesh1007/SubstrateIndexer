@@ -1,49 +1,55 @@
-use tokio_tungstenite::connect_async;
-use tokio_tungstenite::tungstenite::Message;
-use futures_util::stream::StreamExt; 
-use futures_util::sink::SinkExt; 
+use subxt::OnlineClient;
+use subxt::PolkadotConfig;
 use tokio::runtime::Runtime;
+
+// Import StreamExt so we can call `.next()` on streams.
+use futures_util::stream::StreamExt;
 
 fn main() {
     let rt = Runtime::new().unwrap();
     rt.block_on(async {
-        let url = "wss://rpc.polkadot.io";
-
-        
-        match connect_async(url).await {
-            Ok((mut ws_stream, _)) => {
+        // 1. Connect to the Polkadot node
+        let api = match OnlineClient::<PolkadotConfig>::from_url("wss://rpc.polkadot.io").await {
+            Ok(client) => {
                 println!("Connected to the Polkadot node!");
+                client
+            }
+            Err(e) => {
+                eprintln!("Failed to connect: {:?}", e);
+                return;
+            }
+        };
 
-                let request = r#"{
-                    "jsonrpc": "2.0",
-                    "method": "chain_subscribeNewHeads",
-                    "params": [],
-                    "id": 1
-                }"#;
+    
+        let subscription = match api
+            .rpc()
+            .subscribe_raw("chain_subscribeNewHeads", None, "chain_unsubscribeNewHeads")
+            .await
+        {
+            Ok(sub) => sub,
+            Err(e) => {
+                eprintln!("Failed to subscribe to new heads: {:?}", e);
+                return;
+            }
+        };
 
-                // Send subscription request
-                if let Err(e) = ws_stream.send(Message::Text(request.into())).await {
-                    eprintln!("Failed to send subscription request: {:?}", e);
-                    return;
+        println!("Subscribed to new block headers.");
+
+        let mut messages = subscription.messages();
+
+        while let Some(response) = messages.next().await {
+            match response {
+                Ok(subscription_response) => {
+                    
+                    println!("New block message: {:?}", subscription_response);
                 }
-
-                println!("Subscribed to new heads.");
-
-                // Listen for incoming messages
-                while let Some(msg) = ws_stream.next().await {
-                    match msg {
-                        Ok(message) => {
-                            if let Message::Text(text) = message {
-                                println!("Received: {}", text);
-                            } else {
-                                println!("Received non-text message: {:?}", message);
-                            }
-                        }
-                        Err(e) => eprintln!("Error reading message: {:?}", e),
-                    }
+                Err(e) => {
+                    eprintln!("Error receiving block: {:?}", e);
+                    break;
                 }
             }
-            Err(e) => eprintln!("Failed to connect to Polkadot node: {:?}", e),
         }
+
+        println!("Subscription ended.");
     });
 }
