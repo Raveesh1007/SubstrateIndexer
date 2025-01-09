@@ -5,5 +5,4 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-subxt = "0.29"  # Subxt library for interacting with Substrate-based nodes
-futures-util = "0.3"
+subxt = "0.29"
