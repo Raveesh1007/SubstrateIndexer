@@ -20,6 +20,27 @@ fn main() {
             Err(e) => {
                 eprintln!("Failed to connect to Polkadot node: {:?}", e);
             }
+        };
+
+        match api.rpc().block_hash(None).await{
+            Ok(Some(hash)) => {
+                println!("Latest block hash: {:?}", hash);
+
+                match api.rpc().block(Some(hash)).await{
+                    Ok(Some(block)) => println!("Latest block: {:?}", block),
+                    Ok(None) => println!("No block details found"),
+                    Err(e) => eprintln!("Error fetching block details: {:?}", e),
+                }
+
+                match api.rpc().block(Some(hash)).await{
+                    Ok(Some(event)) => println!("Latest block: {:?}", event),
+                    Err(e) => eprintln!("Error printing event: {:?}", e),
+                }
+            }
+            Ok(None) => println!("No block hash found"),
+            Err(e) => eprintln!("Error fetchinh block hash: {:?}", e),
         }
+
+        
     });
 }
