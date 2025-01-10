@@ -1,6 +1,6 @@
 use subxt::{OnlineClient, PolkadotConfig};
 use subxt::rpc::RpcParams;
-use serde_json::Value; // To parse raw JSON
+use serde_json::Value; 
 use tokio::runtime::Runtime;
 
 fn main() {
@@ -18,7 +18,6 @@ fn main() {
             }
         };
 
-        // Subscribe to new block headers using chain_subscribeNewHeads
         let mut subscription = match api.rpc().subscribe::<Value>(
             "chain_subscribeNewHeads",
             RpcParams::new(),
@@ -33,7 +32,6 @@ fn main() {
 
         println!("Subscribed to new block headers. Listening for new blocks...");
 
-        // Process incoming block headers
         while let Some(result) = subscription.next().await {
             match result {
                 Ok(new_head) => {
