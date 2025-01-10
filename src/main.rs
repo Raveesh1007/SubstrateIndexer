@@ -1,46 +1,49 @@
 use subxt::{OnlineClient, PolkadotConfig};
+use subxt::rpc::RpcParams;
+use serde_json::Value; // To parse raw JSON
 use tokio::runtime::Runtime;
 
 fn main() {
-    // Create a Tokio runtime for async execution
     let rt = Runtime::new().unwrap();
     rt.block_on(async {
         // Connect to the Polkadot WebSocket endpoint
-        match OnlineClient::<PolkadotConfig>::from_url("wss://rpc.polkadot.io:443").await {
+        let api = match OnlineClient::<PolkadotConfig>::from_url("wss://rpc.polkadot.io:443").await {
             Ok(client) => {
                 println!("Connected to the Polkadot node!");
-
-                
-                match client.rpc().block_hash(None).await {
-                    Ok(Some(hash)) => println!("Latest block hash: {:?}", hash),
-                    Ok(None) => println!("No block hash found."),
-                    Err(e) => eprintln!("Error fetching block hash: {:?}", e),
-                }
+                client
             }
             Err(e) => {
                 eprintln!("Failed to connect to Polkadot node: {:?}", e);
+                return;
             }
         };
 
-        match api.rpc().block_hash(None).await{
-            Ok(Some(hash)) => {
-                println!("Latest block hash: {:?}", hash);
+        // Subscribe to new block headers using chain_subscribeNewHeads
+        let mut subscription = match api.rpc().subscribe::<Value>(
+            "chain_subscribeNewHeads",
+            RpcParams::new(),
+            "chain_unsubscribeNewHeads",
+        ).await {
+            Ok(sub) => sub,
+            Err(e) => {
+                eprintln!("Failed to subscribe to new block headers: {:?}", e);
+                return;
+            }
+        };
 
-                match api.rpc().block(Some(hash)).await{
-                    Ok(Some(block)) => println!("Latest block: {:?}", block),
-                    Ok(None) => println!("No block details found"),
-                    Err(e) => eprintln!("Error fetching block details: {:?}", e),
+        println!("Subscribed to new block headers. Listening for new blocks...");
+
+        // Process incoming block headers
+        while let Some(result) = subscription.next().await {
+            match result {
+                Ok(new_head) => {
+                    println!("New block header: {:?}", new_head);
                 }
-
-                match api.rpc().block(Some(hash)).await{
-                    Ok(Some(event)) => println!("Latest block: {:?}", event),
-                    Err(e) => eprintln!("Error printing event: {:?}", e),
+                Err(e) => {
+                    eprintln!("Error receiving new block header: {:?}", e);
+                    break;
                 }
             }
-            Ok(None) => println!("No block hash found"),
-            Err(e) => eprintln!("Error fetchinh block hash: {:?}", e),
         }
-
-        
     });
 }
