@@ -31,7 +31,7 @@ struct Digest {
 fn main() {
     let rt = Runtime::new().unwrap();
     rt.block_on(async {
-        // Connect to the Polkadot WebSocket endpoint
+
         let api = match OnlineClient::<PolkadotConfig>::from_url("wss://rpc.polkadot.io:443").await {
             Ok(client) => {
                 println!("Connected to the Polkadot node!");
@@ -43,7 +43,6 @@ fn main() {
             }
         };
 
-        // Subscribe to new block headers using chain_subscribeNewHeads
         let mut subscription = match api.rpc().subscribe::<Value>(
             "chain_subscribeNewHeads",
             RpcParams::new(),
@@ -58,11 +57,10 @@ fn main() {
 
         println!("Subscribed to new block headers. Listening for new blocks...");
 
-        // Process incoming block headers
         while let Some(result) = subscription.next().await {
             match result {
                 Ok(new_head) => {
-                    // Attempt to deserialize the block header into our struct
+        
                     if let Ok(parsed_header) = serde_json::from_value::<BlockHeader>(new_head.clone()) {
                         println!("Parsed Block Header: {:?}", parsed_header);
                     } else {
