@@ -3,6 +3,9 @@ use serde_json::Value;
 use subxt::{OnlineClient, PolkadotConfig};
 use subxt::rpc::RpcParams;
 use tokio::runtime::Runtime;
+use tokio_postgres::{NoTls, Client};
+use dotenv::dotenv;
+use std::env;
 
 #[derive(Debug, Deserialize)]
 struct BlockHeader {
@@ -28,10 +31,76 @@ struct Digest {
     logs: Vec<String>,
 }
 
+/// Connect to PostgreSQL using the connection string from `.env`.
+/// Returns a `Client` if successful, or `None` if the connection fails.
+async fn connect_to_postgres() -> Option<Client> {
+    // Load environment variables from `.env` file
+    dotenv().ok();
+
+    // Read the database URL
+    let connection_str = match env::var("DATABASE_URL") {
+        Ok(val) => val,
+        Err(e) => {
+            eprintln!("DATABASE_URL not set in .env: {:?}", e);
+            return None;
+        }
+    };
+
+    println!("Attempting to connect to PostgreSQL using: {}", connection_str);
+
+    // Directly connect using the URL, bypassing the Config parse
+    match tokio_postgres::connect(&connection_str, NoTls).await {
+        Ok((client, connection)) => {
+            // Spawn the background task for this connection
+            tokio::spawn(async move {
+                if let Err(e) = connection.await {
+                    eprintln!("PostgreSQL connection error: {:?}", e);
+                }
+            });
+
+            println!("Connected to PostgreSQL database!");
+            Some(client)
+        }
+        Err(e) => {
+            eprintln!("Failed to connect to PostgreSQL: {:?}", e);
+            None
+        }
+    }
+}
+
+/// Saves the parsed block header to the `block_headers` table.
+async fn save_block_header(client: &Client, header: &BlockHeader) {
+    let query = "
+        INSERT INTO block_headers (parent_hash, number, state_root, extrinsics_root, digest_logs)
+        VALUES ($1, $2, $3, $4, $5);
+    ";
+
+    if let Err(e) = client
+        .execute(
+            query,
+            &[
+                &header.parent_hash,
+                &header.number,
+                &header.state_root,
+                &header.extrinsics_root,
+                &header.digest.logs,
+            ],
+        )
+        .await
+    {
+        eprintln!("Failed to insert block header: {:?}", e);
+    } else {
+        println!("Block header successfully saved: {:?}", header);
+    }
+}
+
 fn main() {
     let rt = Runtime::new().unwrap();
     rt.block_on(async {
+        // Step 1: Connect to PostgreSQL
+        let postgres_client = connect_to_postgres().await;
 
+        // Step 2: Connect to the Polkadot WebSocket endpoint
         let api = match OnlineClient::<PolkadotConfig>::from_url("wss://rpc.polkadot.io:443").await {
             Ok(client) => {
                 println!("Connected to the Polkadot node!");
@@ -43,11 +112,14 @@ fn main() {
             }
         };
 
+        // Step 3: Subscribe to new block headers
         let mut subscription = match api.rpc().subscribe::<Value>(
             "chain_subscribeNewHeads",
             RpcParams::new(),
             "chain_unsubscribeNewHeads",
-        ).await {
+        )
+        .await
+        {
             Ok(sub) => sub,
             Err(e) => {
                 eprintln!("Failed to subscribe to new block headers: {:?}", e);
@@ -57,12 +129,19 @@ fn main() {
 
         println!("Subscribed to new block headers. Listening for new blocks...");
 
+        // Step 4: Parse and store block headers
         while let Some(result) = subscription.next().await {
             match result {
                 Ok(new_head) => {
-        
-                    if let Ok(parsed_header) = serde_json::from_value::<BlockHeader>(new_head.clone()) {
+                    if let Ok(parsed_header) = serde_json::from_value::<BlockHeader>(new_head.clone())
+                    {
                         println!("Parsed Block Header: {:?}", parsed_header);
+
+                        if let Some(ref client) = postgres_client {
+                            save_block_header(client, &parsed_header).await;
+                        } else {
+                            println!("Skipping database save as PostgreSQL client is not initialized.");
+                        }
                     } else {
                         println!("Failed to parse block header.");
                     }
