@@ -31,13 +31,11 @@ struct Digest {
     logs: Vec<String>,
 }
 
-/// Connect to PostgreSQL using the connection string from `.env`.
-/// Returns a `Client` if successful, or `None` if the connection fails.
+
 async fn connect_to_postgres() -> Option<Client> {
-    // Load environment variables from `.env` file
     dotenv().ok();
 
-    // Read the database URL
+ 
     let connection_str = match env::var("DATABASE_URL") {
         Ok(val) => val,
         Err(e) => {
@@ -48,7 +46,7 @@ async fn connect_to_postgres() -> Option<Client> {
 
     println!("Attempting to connect to PostgreSQL using: {}", connection_str);
 
-    // Directly connect using the URL, bypassing the Config parse
+
     match tokio_postgres::connect(&connection_str, NoTls).await {
         Ok((client, connection)) => {
             // Spawn the background task for this connection
@@ -68,7 +66,6 @@ async fn connect_to_postgres() -> Option<Client> {
     }
 }
 
-/// Saves the parsed block header to the `block_headers` table.
 async fn save_block_header(client: &Client, header: &BlockHeader) {
     let query = "
         INSERT INTO block_headers (parent_hash, number, state_root, extrinsics_root, digest_logs)
@@ -97,7 +94,7 @@ async fn save_block_header(client: &Client, header: &BlockHeader) {
 fn main() {
     let rt = Runtime::new().unwrap();
     rt.block_on(async {
-        // Step 1: Connect to PostgreSQL
+
         let postgres_client = connect_to_postgres().await;
 
         // Step 2: Connect to the Polkadot WebSocket endpoint
@@ -112,7 +109,7 @@ fn main() {
             }
         };
 
-        // Step 3: Subscribe to new block headers
+
         let mut subscription = match api.rpc().subscribe::<Value>(
             "chain_subscribeNewHeads",
             RpcParams::new(),
@@ -129,7 +126,7 @@ fn main() {
 
         println!("Subscribed to new block headers. Listening for new blocks...");
 
-        // Step 4: Parse and store block headers
+
         while let Some(result) = subscription.next().await {
             match result {
                 Ok(new_head) => {
